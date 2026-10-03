@@ -1,10 +1,12 @@
 import crypto from "crypto";
+import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireRole } from "@/server/services/orgs";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import type { Role } from "@prisma/client";
 
 const INVITE_DAYS = 7;
+const emailSchema = z.string().email().toLowerCase();
 
 export async function createInvitation(
   orgId: string,
@@ -13,7 +15,9 @@ export async function createInvitation(
   role: Role,
 ) {
   await requireRole(orgId, actorId, "ADMIN");
-  const normalized = email.toLowerCase();
+  const parsed = emailSchema.safeParse(email);
+  if (!parsed.success) throw new ValidationError("Invalid email address");
+  const normalized = parsed.data;
   if (role === "OWNER") throw new ValidationError("Cannot invite as owner");
 
   const existingMember = await prisma.membership.findFirst({
@@ -24,7 +28,7 @@ export async function createInvitation(
   const pending = await prisma.invitation.findUnique({
     where: { orgId_email: { orgId, email: normalized } },
   });
-  if (pending && pending.acceptedAt === null) {
+  if (pending && pending.acceptedAt === null && pending.expiresAt > new Date()) {
     throw new ValidationError("An invitation for that email is already pending");
   }
   if (pending) await prisma.invitation.delete({ where: { id: pending.id } });
@@ -67,13 +71,14 @@ export async function acceptInvitation(token: string, userId: string) {
 
 export async function revokeInvitation(orgId: string, actorId: string, invitationId: string) {
   await requireRole(orgId, actorId, "ADMIN");
-  await prisma.invitation.deleteMany({ where: { id: invitationId, orgId } });
+  const r = await prisma.invitation.deleteMany({ where: { id: invitationId, orgId } });
+  if (r.count === 0) throw new NotFoundError("Invitation not found");
 }
 
 export async function listInvitations(orgId: string, actorId: string) {
   await requireRole(orgId, actorId, "ADMIN");
   return prisma.invitation.findMany({
-    where: { orgId, acceptedAt: null },
+    where: { orgId, acceptedAt: null, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: "desc" },
   });
 }

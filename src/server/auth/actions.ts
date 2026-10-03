@@ -22,8 +22,10 @@ export async function registerAction(input: {
   email: string;
   password: string;
 }): Promise<AuthResult> {
-  const parsed = credentials.extend({ name: z.string().min(1) }).safeParse(input);
-  if (!parsed.success) throw new ValidationError(parsed.error.message);
+  const parsed = credentials
+    .extend({ name: z.string().min(1).max(100) })
+    .safeParse(input);
+  if (!parsed.success) throw new ValidationError("Invalid input");
   const { email, password, name } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -43,7 +45,7 @@ export async function loginAction(input: {
   password: string;
 }): Promise<AuthResult> {
   const parsed = credentials.safeParse(input);
-  if (!parsed.success) throw new ValidationError(parsed.error.message);
+  if (!parsed.success) throw new ValidationError("Invalid input");
   const { email, password } = parsed.data;
 
   const user = await prisma.user.findUnique({ where: { email } });

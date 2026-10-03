@@ -29,6 +29,10 @@ export async function changeRole(
   if (target.role === "OWNER" || newRole === "OWNER") {
     if (actor.role !== "OWNER") throw new ForbiddenError("Only the owner can change ownership");
   }
+  if (target.role === "OWNER" && newRole !== "OWNER") {
+    const ownerCount = await prisma.membership.count({ where: { orgId, role: "OWNER" } });
+    if (ownerCount <= 1) throw new ForbiddenError("Organization must keep at least one owner");
+  }
   return prisma.membership.update({
     where: { id: target.id },
     data: { role: newRole },

@@ -79,6 +79,14 @@ describe("role matrix", () => {
     await expect(removeMember(second.id, outsider, outsider)).rejects.toBeInstanceOf(ForbiddenError);
     await prisma.organization.delete({ where: { id: second.id } });
   });
+
+  it("last OWNER cannot demote self (zero-owner lockout prevented)", async () => {
+    const second = await prisma.organization.create({
+      data: { name: "Solo2", slug: "solo-roles2", memberships: { create: { userId: outsider, role: "OWNER" } } },
+    });
+    await expect(changeRole(second.id, outsider, outsider, "MEMBER")).rejects.toBeInstanceOf(ForbiddenError);
+    await prisma.organization.delete({ where: { id: second.id } });
+  });
 });
 
 describe("listMembers", () => {
