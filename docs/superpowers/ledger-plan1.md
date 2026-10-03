@@ -20,7 +20,9 @@ Mode: inline, continuous.
 - Ruling: invitation email = console.log of invite link (demo stand-in per spec §4).
 
 ## Notes for Plan 2/3
+- Final review (fresh-context subagent): 0 BLOCKER, 8 MAJOR, 7 MINOR. All MAJORs fixed in 2e73b15 + digest fix commit: last-OWNER demotion guard, switchOrgAction validates slug+membership before cookie write, TEST_DATABASE_URL honored in db.ts, setup-db.sh stray-brace fixed, .env.example complete, /org no-membership loop -> auto-create personal org, invitation email zod-validated + expired-pending handling + revoke NotFound + list filters expired.
+- Accepted MINORs (deferred): cookie `secure` flag (local demo), middleware cookie-presence-only auth (page-level currentSession is authority), invite `?next=` param dead (wire in Plan 2), mksess.mjs prod guard (demo-only tool), member-actions z.enum at action boundary (privilege logic already sound).
 - middleware.ts deprecated in Next 16 (warning only; "proxy" is successor).
-- tf_org cookie written but unused; pages resolve org by slug.
+- tf_org cookie now validated at write time; still unused for reads — Plan 2 may use it for default landing.
 - scripts/mksess.mjs = dev-only session minting for curl smoke tests.
 - Secret-masking in agent tool calls corrupts literal passwords in commands; build URLs from vars or read .env in scripts.
