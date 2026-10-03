@@ -12,6 +12,7 @@ export default defineConfig({
     testTimeout: 20000,
     hookTimeout: 30000,
     fileParallelism: false,
+    alias: { "@": new URL("./src", import.meta.url).pathname },
   },
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
 });
