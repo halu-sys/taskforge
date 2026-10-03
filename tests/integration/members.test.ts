@@ -10,7 +10,8 @@ let orgId: string;
 let owner: string, admin: string, member: string, outsider: string;
 
 beforeAll(async () => {
-  await prisma.organization.deleteMany({ where: { slug: "roles-test" } });
+  await prisma.organization.deleteMany({ where: { slug: { in: ["roles-test", "solo-roles"] } } });
+  await prisma.user.deleteMany({ where: { email: { in: ["owner@roles.test", "admin@roles.test", "member@roles.test", "out@roles.test"] } } });
   const mk = (email: string) =>
     prisma.user.create({ data: { email, name: email, passwordHash: "x" } });
   owner = (await mk("owner@roles.test")).id;
