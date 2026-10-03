@@ -1,8 +1,12 @@
 "use server";
 
 import { loginAction, registerAction, type AuthResult } from "@/server/auth/actions";
-import { isRedirectError } from "next/server";
 import { AppError } from "@/server/errors";
+
+function isRedirectError(e: unknown): boolean {
+  return typeof (e as { digest?: unknown })?.digest === "string" &&
+    String((e as { digest: string }).digest).startsWith("NEXT_REDIRECT");
+}
 
 export async function loginFormAction(_prev: AuthResult | null, fd: FormData): Promise<AuthResult> {
   try {
