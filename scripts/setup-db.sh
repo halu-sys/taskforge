@@ -2,7 +2,7 @@
 # Create TaskForge roles + databases. Run once as superuser.
 set -euo pipefail
 PSQL="${PSQL:-/c/Program Files/PostgreSQL/17/bin/psql.exe}"
-export PGPASSWORD="${PGPASSWORD:-postgres}"
+export PGPASSWORD="${PGPASSWORD:-$(cat /tmp/pgpw.txt)}}"
 "$PSQL" -h 127.0.0.1 -U postgres <<'SQL'
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='taskforge') THEN
