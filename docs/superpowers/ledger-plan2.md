@@ -4,13 +4,16 @@ Plan: docs/superpowers/plans/2026-10-04-plan2-core-product.md
 Mode: inline, continuous.
 
 ## Tasks
-- [ ] T1 Projects service + dashboard
-- [ ] T2 Tasks CRUD + positions
-- [ ] T3 Kanban board UI (drag-drop)
-- [ ] T4 Task detail + comments + mentions
-- [ ] T5 Activity feed + notifications
+- [x] T1 Projects service + dashboard
+- [x] T2 Tasks CRUD + positions
+- [x] T3 Kanban board UI (drag-drop)
+- [x] T4 Task detail + comments + mentions
+- [x] T5 Activity feed + notifications
 - [ ] T6 Search
 - [ ] T7 Seed + hardening
 
 ## Rulings
-(none yet)
+- Ruling: cross-org project/task access throws NotFoundError (not ForbiddenError) — existence of other-org resources is not disclosed — tests assert /not found/i.
+- Ruling: MEMBER may mutate tasks they created OR are assigned to (spec "own work + assigned tasks"); ADMIN+ all — implemented in assertCanMutate.
+- Ruling: inline "use server" in client components is rejected by Next 16 build; all actions live in "use server" modules and are bound via .bind(null, ...) — applies to every form.
+- Ruling: comment activity logs projectId undefined (Comment has no direct project link; taskId in payload suffices for demo feed) — cheap to backfill later.

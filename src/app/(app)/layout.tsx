@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { logoutAction } from "@/server/auth/actions";
 import { switchOrgAction } from "@/server/services/org-actions";
 import NotificationBell from "@/components/NotificationBell";
+import SearchBox from "@/components/SearchBox";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await currentSession();
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <button className="underline">Switch</button>
         </form>
         <nav className="flex gap-3 ml-auto">
+          <SearchBox />
           {memberships.map((m) => (
             <Link key={m.org.id} href={`/org/${m.org.slug}`} className="hover:underline">
               {m.org.name}
