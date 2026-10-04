@@ -15,22 +15,26 @@ export default async function InvitePage({
 
   if (!inv || inv.acceptedAt || inv.expiresAt < new Date()) {
     return (
-      <main className="p-8 max-w-md mx-auto mt-16">
-        <h1 className="text-xl font-bold">Invitation not valid</h1>
-        <p className="text-gray-500 mt-2">This invite link is expired, revoked, or already used.</p>
+      <main className="page-narrow mt-16">
+        <div className="card p-6">
+          <h1 className="h1">Invitation not valid</h1>
+          <p className="muted mt-2">This invite link is expired, revoked, or already used.</p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="p-8 max-w-md mx-auto mt-16">
-      <h1 className="text-xl font-bold">Join {inv.org.name}</h1>
-      <p className="text-gray-600 mt-2">
-        You have been invited as <b>{inv.role}</b>.
-      </p>
-      <form action={acceptInvitationAction.bind(null, token)} className="mt-4">
-        <button className="bg-black text-white px-4 py-2 rounded">Accept invitation</button>
-      </form>
+    <main className="page-narrow mt-16">
+      <div className="card p-6">
+        <h1 className="h1">Join {inv.org.name}</h1>
+        <p className="muted mt-2">
+          You have been invited as <b className="text-inherit">{inv.role}</b>.
+        </p>
+        <form action={acceptInvitationAction.bind(null, token)} className="mt-4">
+          <button className="btn btn-primary">Accept invitation</button>
+        </form>
+      </div>
     </main>
   );
 }

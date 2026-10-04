@@ -27,34 +27,34 @@ export default async function SearchPage({
   }
 
   return (
-    <main className="p-8 max-w-2xl">
-      <h1 className="text-xl font-bold mb-4">Search {q && <span className="text-gray-500">“{q}”</span>}</h1>
-      {error && <p className="text-red-600">Not a member of this org.</p>}
+    <main className="page-narrow">
+      <h1 className="h1 mb-4">Search {q && <span className="muted font-normal">“{q}”</span>}</h1>
+      {error && <p className="banner-danger mb-4">Not a member of this org.</p>}
       <section className="mb-6">
-        <h2 className="font-semibold mb-2">Projects ({results.projects.length})</h2>
-        <ul className="text-sm space-y-1">
+        <h2 className="h2 mb-2">Projects ({results.projects.length})</h2>
+        <ul className="text-sm space-y-1.5">
           {results.projects.map((p) => (
             <li key={p.id}>
-              <Link className="underline" href={`/org/${slug}/projects/${p.key}`}>
-                <span className="font-mono text-gray-400 mr-2">{p.key}</span>{p.name}
+              <Link className="link" href={`/org/${slug}/projects/${p.key}`}>
+                <span className="font-mono faint mr-2">{p.key}</span>{p.name}
               </Link>
             </li>
           ))}
         </ul>
       </section>
       <section>
-        <h2 className="font-semibold mb-2">Tasks ({results.tasks.length})</h2>
-        <ul className="text-sm space-y-1">
+        <h2 className="h2 mb-2">Tasks ({results.tasks.length})</h2>
+        <ul className="text-sm space-y-1.5">
           {results.tasks.map((t) => (
             <li key={t.id}>
-              <Link className="underline" href={`/org/${slug}/tasks/${t.id}`}>
-                <span className="font-mono text-gray-400 mr-2">{t.board.project.key}-{t.number}</span>{t.title}
+              <Link className="link" href={`/org/${slug}/tasks/${t.id}`}>
+                <span className="font-mono faint mr-2">{t.board.project.key}-{t.number}</span>{t.title}
               </Link>
             </li>
           ))}
         </ul>
         {q && results.tasks.length === 0 && results.projects.length === 0 && (
-          <p className="text-gray-500 text-sm mt-2">No matches.</p>
+          <p className="muted text-sm mt-2">No matches.</p>
         )}
       </section>
     </main>

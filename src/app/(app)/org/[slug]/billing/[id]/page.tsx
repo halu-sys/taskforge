@@ -27,31 +27,34 @@ export default async function InvoicePage({
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-6 space-y-6">
-      <a href={`/org/${slug}/billing`} className="text-sm underline">&larr; Billing</a>
-      <h1 className="text-2xl font-bold">{inv.number}</h1>
-      <p className="text-sm text-gray-600">
-        {dt(inv.periodStart)} – {dt(inv.periodEnd)} · status: <span className="font-medium">{inv.status}</span>
+    <main className="page-narrow space-y-6">
+      <a href={`/org/${slug}/billing`} className="link text-sm">&larr; Billing</a>
+      <h1 className="h1">{inv.number}</h1>
+      <p className="text-sm muted">
+        {dt(inv.periodStart)} – {dt(inv.periodEnd)} · status:{" "}
+        <span className={`badge ${inv.status === "PAID" ? "badge-ok" : inv.status === "UNCOLLECTED" ? "badge-danger" : ""}`}>{inv.status}</span>
         {inv.paidAt && <> · paid {dt(inv.paidAt)}</>}
       </p>
-      <table className="w-full text-sm">
-        <thead><tr className="text-left text-gray-500"><th className="py-1">Description</th><th className="text-right">Amount</th></tr></thead>
+      <div className="card overflow-hidden">
+      <table className="table">
+        <thead><tr><th>Description</th><th style={{textAlign:"right"}}>Amount</th></tr></thead>
         <tbody>
           {inv.lines.map((l) => (
-            <tr key={l.id} className="border-t">
-              <td className="py-1">{l.description}</td>
-              <td className="text-right">{fmt(l.amountCents)}</td>
+            <tr key={l.id}>
+              <td>{l.description}</td>
+              <td style={{textAlign:"right"}}>{fmt(l.amountCents)}</td>
             </tr>
           ))}
-          <tr className="border-t font-semibold">
-            <td>Total</td><td className="text-right">{fmt(inv.amountCents)}</td>
+          <tr className="font-semibold">
+            <td>Total</td><td style={{textAlign:"right"}}>{fmt(inv.amountCents)}</td>
           </tr>
         </tbody>
       </table>
+      </div>
       <section className="text-sm space-y-1">
         <h2 className="font-medium">Payments</h2>
         {inv.payments.map((p) => (
-          <p key={p.id} className="text-gray-600">
+          <p key={p.id} className="muted">
             {fmt(p.amountCents)} · {p.status} · {dt(p.createdAt)}{p.providerId ? ` · ${p.providerId}` : ""}
           </p>
         ))}

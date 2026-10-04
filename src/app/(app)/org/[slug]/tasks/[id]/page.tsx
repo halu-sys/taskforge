@@ -30,76 +30,76 @@ export default async function TaskDetailPage({
   const projectKey = task.board.project.key;
 
   return (
-    <main className="p-8 max-w-3xl">
-      <div className="text-sm text-gray-500 mb-2">
-        <Link href={`/org/${slug}/projects/${projectKey}`} className="underline">
+    <main className="page-narrow">
+      <div className="text-sm muted mb-2">
+        <Link className="link" href={`/org/${slug}/projects/${projectKey}`}>
           {projectKey} / {task.board.name}
         </Link>
       </div>
-      <h1 className="text-xl font-bold mb-4">
-        <span className="font-mono text-gray-400 text-sm mr-2">#{task.number}</span>
+      <h1 className="h1 mb-6">
+        <span className="font-mono faint text-sm mr-2">#{task.number}</span>
         {task.title}
       </h1>
 
-      <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+      <div className="card p-4 grid grid-cols-2 gap-4 text-sm mb-8">
         <div>
-          <div className="text-gray-500">Status</div>
-          <form action={updateTaskFieldAction.bind(null, org.id, id, "status")}>
-            <select name="status" defaultValue={task.status} className="border p-1 rounded">
+          <div className="muted mb-1">Status</div>
+          <form action={updateTaskFieldAction.bind(null, org.id, id, "status")} className="flex gap-1.5">
+            <select name="status" defaultValue={task.status} className="select py-1">
               {["BACKLOG","TODO","IN_PROGRESS","IN_REVIEW","DONE"].map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
-            <button className="underline ml-1">Set</button>
+            <button className="btn py-1">Set</button>
           </form>
         </div>
         <div>
-          <div className="text-gray-500">Assignee</div>
-          <form action={updateTaskFieldAction.bind(null, org.id, id, "assignee")}>
-            <select name="assigneeId" defaultValue={task.assignee?.id ?? ""} className="border p-1 rounded">
+          <div className="muted mb-1">Assignee</div>
+          <form action={updateTaskFieldAction.bind(null, org.id, id, "assignee")} className="flex gap-1.5">
+            <select name="assigneeId" defaultValue={task.assignee?.id ?? ""} className="select py-1">
               <option value="">unassigned</option>
               {members.map((m) => (
                 <option key={m.user.id} value={m.user.id}>{m.user.name}</option>
               ))}
             </select>
-            <button className="underline ml-1">Set</button>
+            <button className="btn py-1">Set</button>
           </form>
         </div>
         <div>
-          <div className="text-gray-500">Priority</div>
-          <form action={updateTaskFieldAction.bind(null, org.id, id, "priority")}>
-            <select name="priority" defaultValue={task.priority} className="border p-1 rounded">
+          <div className="muted mb-1">Priority</div>
+          <form action={updateTaskFieldAction.bind(null, org.id, id, "priority")} className="flex gap-1.5">
+            <select name="priority" defaultValue={task.priority} className="select py-1">
               {["NONE","LOW","MEDIUM","HIGH","URGENT"].map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
-            <button className="underline ml-1">Set</button>
+            <button className="btn py-1">Set</button>
           </form>
         </div>
         <div>
-          <div className="text-gray-500">Created by {task.createdBy.name}</div>
+          <div className="muted">Created by {task.createdBy.name}</div>
           <form action={deleteTaskAction.bind(null, org.id, id)} className="mt-2">
-            <button className="text-red-600 underline text-sm">Delete task</button>
+            <button className="btn btn-danger text-sm py-1">Delete task</button>
           </form>
         </div>
       </div>
 
-      <h2 className="font-semibold mb-2">Comments</h2>
+      <h2 className="h2 mb-3">Comments</h2>
       <div className="space-y-3 mb-4">
         {task.comments.map((c) => (
-          <div key={c.id} className="border rounded p-3 text-sm">
+          <div key={c.id} className="card p-3 text-sm">
             <div className="font-semibold">{c.author.name}
-              <span className="text-gray-400 font-normal ml-2">{c.createdAt.toISOString().slice(0, 16)}</span>
+              <span className="faint font-normal ml-2">{c.createdAt.toISOString().slice(0, 16)}</span>
             </div>
             <p className="mt-1 whitespace-pre-wrap">{c.body}</p>
           </div>
         ))}
-        {task.comments.length === 0 && <p className="text-gray-500 text-sm">No comments yet.</p>}
+        {task.comments.length === 0 && <p className="muted text-sm">No comments yet.</p>}
       </div>
       <form action={addCommentAction.bind(null, org.id, id)} className="flex flex-col gap-2">
         <textarea name="body" required rows={3} placeholder="Comment… (@name to mention)"
-          className="border p-2 rounded text-sm" />
-        <button className="bg-black text-white px-4 py-1 rounded self-start">Comment</button>
+          className="input" />
+        <button className="btn btn-primary self-start">Comment</button>
       </form>
     </main>
   );

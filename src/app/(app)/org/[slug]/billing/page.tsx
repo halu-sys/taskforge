@@ -54,81 +54,84 @@ export default async function BillingPage({
   const planSlug = sub?.status !== "CANCELED" ? sub?.plan.slug ?? "free" : "free";
 
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-8">
-      <h1 className="text-2xl font-bold">Billing</h1>
+    <main className="page-narrow space-y-8">
+      <h1 className="h1">Billing</h1>
 
-      {error && <div className="rounded bg-red-100 text-red-800 p-3">{error}</div>}
-      {ok && <div className="rounded bg-green-100 text-green-800 p-3">{ok}</div>}
+      {error && <div className="banner-danger">{error}</div>}
+      {ok && <div className="banner-ok">{ok}</div>}
 
       {sub && sub.status === "PAST_DUE" && (
-        <div className="rounded bg-amber-100 text-amber-900 p-3 space-y-2">
+        <div className="banner-warn space-y-2">
           <p>Payment failed ({sub.dunningFailures}/3). After 3 failures the subscription is canceled.</p>
           {isOwner && (
             <form action={retryPaymentAction.bind(null, slug)} className="flex gap-2">
-              <input name="card" placeholder="Card number" defaultValue="4242424242424242" className="border rounded p-1 text-sm" />
-              <button className="rounded bg-amber-600 text-white px-3 py-1">Retry payment</button>
+              <input name="card" placeholder="Card number" defaultValue="4242424242424242" className="input" />
+              <button className="btn btn-primary">Retry payment</button>
             </form>
           )}
         </div>
       )}
 
-      <section className="rounded border p-4 space-y-2">
-        <h2 className="font-semibold text-lg">
+      <section className="card p-5 space-y-2">
+        <h2 className="h2">
           Current plan: {sub && sub.status !== "CANCELED" ? sub.plan.name : "Free"}
-          {sub && sub.status !== "CANCELED" && <span className="ml-2 text-sm text-gray-500">({sub.status})</span>}
+          {sub && sub.status !== "CANCELED" && (
+            <span className={`ml-2 badge ${sub.status === "ACTIVE" ? "badge-ok" : "badge-warn"}`}>{sub.status}</span>
+          )}
         </h2>
         {sub && sub.status !== "CANCELED" ? (
           <>
-            <p className="text-sm">{sub.seats} seat(s) · {fmt(sub.plan.priceCents)}/seat/mo · renews {dt(sub.currentPeriodEnd)}</p>
+            <p className="text-sm muted">{sub.seats} seat(s) · {fmt(sub.plan.priceCents)}/seat/mo · renews {dt(sub.currentPeriodEnd)}</p>
             {sub.cancelAtPeriodEnd && (
-              <p className="text-sm text-amber-700">Cancels at period end.</p>
+              <p className="text-sm warn">Cancels at period end.</p>
             )}
             {isOwner && (
               <div className="flex gap-2 pt-2">
                 <form action={changeSeatsAction.bind(null, slug)} className="flex gap-2">
-                  <input type="number" name="seats" min={members} defaultValue={sub.seats} className="border rounded p-1 w-20" />
-                  <button className="rounded bg-gray-800 text-white px-3 py-1">Update seats</button>
+                  <input type="number" name="seats" min={members} defaultValue={sub.seats} className="input w-20" />
+                  <button className="btn">Update seats</button>
                 </form>
                 {sub.cancelAtPeriodEnd ? (
                   <form action={resumeAction.bind(null, slug)}>
-                    <button className="rounded border px-3 py-1">Resume</button>
+                    <button className="btn btn-primary">Resume</button>
                   </form>
                 ) : (
                   <form action={cancelAtPeriodEndAction.bind(null, slug)}>
-                    <button className="rounded border border-red-300 text-red-700 px-3 py-1">Cancel at period end</button>
+                    <button className="btn btn-danger">Cancel at period end</button>
                   </form>
                 )}
               </div>
             )}
           </>
         ) : (
-          <p className="text-sm">Free plan · {members} member(s)</p>
+          <p className="text-sm muted">Free plan · {members} member(s)</p>
         )}
       </section>
 
       {isOwner && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-lg">Plans</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <h2 className="h2">Plans</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {PLAN_CATALOG.map((p) => (
-              <div key={p.slug} className={`rounded border p-3 space-y-2 ${p.slug === planSlug ? "ring-2 ring-blue-500" : ""}`}>
-                <h3 className="font-medium">{p.name}</h3>
-                <p className="text-2xl">{p.priceCents === 0 ? "Free" : fmt(p.priceCents)}<span className="text-sm text-gray-500">/seat/mo</span></p>
-                <ul className="text-sm text-gray-600">
+              <div key={p.slug} className={`card p-4 space-y-2 ${p.slug === planSlug ? "outline outline-2 outline-accent" : ""}`}>
+                <h3 className="font-semibold">{p.name}</h3>
+                <p className="text-2xl font-bold">{p.priceCents === 0 ? "Free" : fmt(p.priceCents)}<span className="text-sm muted font-normal">/seat/mo</span></p>
+                <ul className="text-sm muted space-y-0.5">
                   <li>{p.maxMembers} members</li>
                   <li>{p.maxProjects} projects</li>
                   <li>{p.maxTasksPerOrg.toLocaleString()} tasks</li>
                 </ul>
                 {p.slug !== "free" && p.slug !== planSlug && (
-                  <form action={checkoutAction.bind(null, slug)} className="space-y-2">
+                  <form action={checkoutAction.bind(null, slug)} className="space-y-2 pt-1">
                     <input type="hidden" name="plan" value={p.slug} />
-                    <input name="card" placeholder="Card number" defaultValue="4242424242424242" className="border rounded p-1 w-full text-sm" />
-                    <p className="text-xs text-gray-400">4000000000000002 always declines (demo).</p>
-                    <button className="rounded bg-blue-600 text-white px-3 py-1 w-full">
+                    <input name="card" placeholder="Card number" defaultValue="4242424242424242" className="input w-full" />
+                    <p className="text-xs faint">4000000000000002 always declines (demo).</p>
+                    <button className="btn btn-primary w-full justify-center">
                       {planSlug === "free" ? "Subscribe" : "Switch"} to {p.name}
                     </button>
                   </form>
                 )}
+                {p.slug === planSlug && <span className="badge badge-accent">current</span>}
               </div>
             ))}
           </div>
@@ -136,25 +139,29 @@ export default async function BillingPage({
       )}
 
       <section className="space-y-2">
-        <h2 className="font-semibold text-lg">Invoices</h2>
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-gray-500">
-            <th className="py-1">Number</th><th>Period</th><th>Amount</th><th>Status</th>
+        <h2 className="h2">Invoices</h2>
+        <div className="card overflow-hidden">
+        <table className="table">
+          <thead><tr>
+            <th>Number</th><th>Period</th><th>Amount</th><th>Status</th>
           </tr></thead>
           <tbody>
             {invoices.map((inv) => (
-              <tr key={inv.id} className="border-t">
-                <td className="py-1">
-                  <a className="underline" href={`/org/${slug}/billing/${inv.id}`}>{inv.number}</a>
+              <tr key={inv.id}>
+                <td>
+                  <a className="link" href={`/org/${slug}/billing/${inv.id}`}>{inv.number}</a>
                 </td>
-                <td>{dt(inv.periodStart)} – {dt(inv.periodEnd)}</td>
+                <td className="muted">{dt(inv.periodStart)} – {dt(inv.periodEnd)}</td>
                 <td>{fmt(inv.amountCents)}</td>
-                <td className={inv.status === "PAID" ? "text-green-700" : inv.status === "UNCOLLECTED" ? "text-red-700" : ""}>{inv.status}</td>
+                <td>
+                  <span className={`badge ${inv.status === "PAID" ? "badge-ok" : inv.status === "UNCOLLECTED" ? "badge-danger" : ""}`}>{inv.status}</span>
+                </td>
               </tr>
             ))}
-            {invoices.length === 0 && <tr><td colSpan={4} className="py-2 text-gray-500">No invoices yet.</td></tr>}
+            {invoices.length === 0 && <tr><td colSpan={4} className="muted">No invoices yet.</td></tr>}
           </tbody>
         </table>
+        </div>
       </section>
     </main>
   );

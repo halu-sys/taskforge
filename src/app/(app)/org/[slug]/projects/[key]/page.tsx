@@ -35,12 +35,12 @@ export default async function ProjectBoardPage({
   });
 
   return (
-    <main className="p-8">
-      <h1 className="text-xl font-bold mb-1">
-        <span className="font-mono text-gray-500 text-sm mr-2">{project.key}</span>
+    <main className="page">
+      <h1 className="h1 mb-1">
+        <span className="font-mono faint text-sm mr-2">{project.key}</span>
         {project.name}
       </h1>
-      <p className="text-sm text-gray-500 mb-6">{primary.name}</p>
+      <p className="text-sm muted mb-6">{primary.name}</p>
       <Board
         orgId={org.id}
         boardId={primary.id}

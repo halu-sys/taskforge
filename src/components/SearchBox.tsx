@@ -8,9 +8,8 @@ export default function SearchBox() {
   const slug = m?.[1];
   if (!slug) return null;
   return (
-    <form method="get" action={`/org/${slug}/search`} className="flex gap-1">
-      <input name="q" placeholder="Search…" className="border p-1 rounded text-sm w-40" />
-      <button className="underline text-sm">Go</button>
+    <form method="get" action={`/org/${slug}/search`}>
+      <input name="q" placeholder="Search…" className="input text-sm py-1 w-40" />
     </form>
   );
 }

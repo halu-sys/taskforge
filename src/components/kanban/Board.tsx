@@ -26,8 +26,8 @@ const COLUMNS: { status: TaskStatus; label: string }[] = [
 ];
 
 const PRIORITY_COLOR: Record<TaskPriority, string> = {
-  NONE: "bg-gray-200", LOW: "bg-blue-100", MEDIUM: "bg-yellow-100",
-  HIGH: "bg-orange-200", URGENT: "bg-red-200",
+  NONE: "", LOW: "badge", MEDIUM: "badge badge-warn",
+  HIGH: "badge badge-warn", URGENT: "badge badge-danger",
 };
 
 export default function Board({
@@ -76,15 +76,22 @@ export default function Board({
   }
 
   return (
-    <div className="grid grid-cols-5 gap-3 items-start">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-start">
       {COLUMNS.map((col) => (
         <div
           key={col.status}
-          className="bg-gray-50 rounded p-2 min-h-40"
+          className={`rounded-lg p-2 min-h-40 border transition-colors ${
+            over?.status === col.status && over.taskId === null
+              ? "bg-accent-soft border-accent"
+              : "bg-surface2 border-line"
+          }`}
           onDragOver={(e) => { e.preventDefault(); setOver({ status: col.status, taskId: null }); }}
           onDrop={() => drop(col.status, null)}
         >
-          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">{col.label}</div>
+          <div className="text-xs font-semibold muted uppercase tracking-wide mb-2 px-1">
+            {col.label}
+            <span className="badge ml-2">{columnTasks(col.status).length}</span>
+          </div>
           {columnTasks(col.status).map((t) => (
             <div
               key={t.id}
@@ -92,22 +99,22 @@ export default function Board({
               onDragStart={() => setDragId(t.id)}
               onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setOver({ status: col.status, taskId: t.id }); }}
               onDrop={(e) => { e.stopPropagation(); drop(col.status, t.id); }}
-              className={`bg-white border rounded p-2 mb-2 cursor-grab text-sm ${
-                over?.status === col.status && over.taskId === t.id ? "border-black" : ""
-              }`}
+              className={`card p-2.5 mb-2 cursor-grab text-sm hover:shadow-lg transition-shadow ${
+                dragId === t.id ? "opacity-40" : ""
+              } ${over?.status === col.status && over.taskId === t.id ? "outline outline-2 outline-accent" : ""}`}
             >
               <Link href={`/org/${slug}/tasks/${t.id}`} className="block">
-                <span className="font-mono text-xs text-gray-400">#{t.number}</span>{" "}
+                <span className="font-mono text-xs faint">#{t.number}</span>{" "}
                 {t.title}
               </Link>
-              <div className="flex gap-1 mt-1 flex-wrap">
+              <div className="flex gap-1 mt-1.5 flex-wrap items-center">
                 {t.priority !== "NONE" && (
-                  <span className={`text-xs px-1 rounded ${PRIORITY_COLOR[t.priority]}`}>{t.priority}</span>
+                  <span className={PRIORITY_COLOR[t.priority]}>{t.priority}</span>
                 )}
                 {t.labels.map((l) => (
-                  <span key={l} className="text-xs bg-gray-100 px-1 rounded">{l}</span>
+                  <span key={l} className="badge">{l}</span>
                 ))}
-                {t.assigneeName && <span className="text-xs text-gray-500">@{t.assigneeName}</span>}
+                {t.assigneeName && <span className="text-xs muted ml-auto">@{t.assigneeName}</span>}
               </div>
             </div>
           ))}
@@ -124,7 +131,7 @@ function NewTaskForm({ orgId, boardId, status, onDone }: {
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="text-xs text-gray-400 hover:text-black">
+      <button onClick={() => setOpen(true)} className="btn btn-ghost text-xs w-full justify-start faint hover:text-inherit">
         + new task
       </button>
     );
@@ -132,13 +139,13 @@ function NewTaskForm({ orgId, boardId, status, onDone }: {
   return (
     <form
       action={createTaskAction.bind(null, orgId)}
-      className="flex flex-col gap-1"
+      className="flex flex-col gap-1.5"
     >
       <input type="hidden" name="boardId" value={boardId} />
-      <input name="title" required placeholder="Task title" className="border p-1 text-sm rounded" autoFocus />
-      <div className="flex gap-1">
-        <button className="bg-black text-white text-xs px-2 rounded">Add</button>
-        <button type="button" onClick={() => setOpen(false)} className="text-xs text-gray-500">Cancel</button>
+      <input name="title" required placeholder="Task title" className="input text-sm py-1.5" autoFocus />
+      <div className="flex gap-1.5">
+        <button className="btn btn-primary text-xs py-1">Add</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn btn-ghost text-xs py-1">Cancel</button>
       </div>
     </form>
   );
