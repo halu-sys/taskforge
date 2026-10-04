@@ -87,4 +87,40 @@ describe("tasks", () => {
     await expect(deleteTask(orgId, member, t.id)).rejects.toBeInstanceOf(ForbiddenError);
     await deleteTask(orgId, owner, t.id);
   });
+
+  it("concurrent createTask mints distinct numbers (CAS)", async () => {
+    const ts = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => createTask(orgId, member, { boardId, title: `Race ${i}` })),
+    );
+    const numbers = new Set(ts.map((t) => t.number));
+    expect(numbers.size).toBe(5);
+  });
+
+  it("moveTask rebalances when neighbors get too close", async () => {
+    const b = (await prisma.board.create({ data: { projectId, name: "Rebal" } })).id;
+    const a = await createTask(orgId, member, { boardId: b, title: "A" });
+    const c = await createTask(orgId, member, { boardId: b, title: "C" });
+    // dense positions: gap < 0.01 must trigger a full-column rewrite to step-1000 spacing
+    await prisma.task.update({ where: { id: c.id }, data: { position: a.position + 0.001 } });
+    const m = await createTask(orgId, member, { boardId: b, title: "M" });
+    await moveTask(orgId, member, m.id, { boardId: b, status: "TODO", position: a.position + 0.0005 });
+    const col = await prisma.task.findMany({ where: { boardId: b }, orderBy: { position: "asc" } });
+    const gaps = col.slice(1).map((t, i) => t.position - col[i].position);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("moveTask logs task.moved activity", async () => {
+    const t = await createTask(orgId, member, { boardId: otherBoardId, title: "Act" });
+    await moveTask(orgId, member, t.id, { boardId, status: "IN_PROGRESS", position: 99999 });
+    const ev = await prisma.activityEvent.findFirst({ where: { targetId: t.id, verb: "task.moved" } });
+    expect(ev).not.toBeNull();
+  });
+
+  it("invalid priority/status rejected with ValidationError", async () => {
+    const t = await createTask(orgId, member, { boardId, title: "Enum" });
+    await expect(updateTask(orgId, member, t.id, { priority: "NOPE" as never }))
+      .rejects.toThrow(/priority/i);
+    await expect(moveTask(orgId, member, t.id, { boardId, status: "NOPE" as never, position: 1 }))
+      .rejects.toThrow(/status/i);
+  });
 });

@@ -26,13 +26,14 @@ export async function addComment(orgId: string, actorId: string, taskId: string,
     where: { orgId },
     include: { user: { select: { id: true, name: true } } },
   });
-  const tokens = [...text.matchAll(/@([a-zA-Z0-9_-]+)/g)].map((m) => m[1].toLowerCase());
-  if (tokens.length > 0) {
+  const tokens = new Set([...text.matchAll(/@([a-zA-Z0-9_-]+)/g)].map((m) => m[1].toLowerCase()));
+  if (tokens.size > 0) {
     const orgRow = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
     for (const m of members) {
       if (m.userId === actorId) continue;
-      const name = m.user.name.toLowerCase();
-      if (tokens.some((t) => name.startsWith(t) || t.startsWith(name))) {
+      const first = m.user.name.trim().toLowerCase().split(/\s+/)[0];
+      const full = m.user.name.trim().toLowerCase();
+      if (tokens.has(first) || tokens.has(full)) {
         await prisma.notification.create({
           data: { userId: m.userId, verb: "mention", link: `/org/${orgRow.slug}/tasks/${taskId}` },
         });

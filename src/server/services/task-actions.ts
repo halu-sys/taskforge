@@ -46,6 +46,7 @@ export async function moveTaskAction(orgId: string, taskId: string, input: {
   await moveTask(orgId, userId, taskId, input);
   const slug = await orgSlug(orgId);
   revalidatePath(`/org/${slug}`);
+  revalidatePath(`/org/${slug}/projects/[key]`, "page");
 }
 
 export async function deleteTaskAction(orgId: string, taskId: string) {
@@ -72,7 +73,8 @@ export async function updateTaskFieldAction(
   const userId = await actor();
   if (field === "status") {
     const status = String(fd.get("status") ?? "") as TaskStatus;
-    const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+    const task = await prisma.task.findFirst({ where: { id: taskId, orgId } });
+    if (!task) throw new Error("Task not found");
     await moveTask(orgId, userId, taskId, { boardId: task.boardId, status, position: task.position });
   } else if (field === "assignee") {
     const v = String(fd.get("assigneeId") ?? "");
@@ -82,5 +84,5 @@ export async function updateTaskFieldAction(
   }
   const slug = await orgSlug(orgId);
   revalidatePath(`/org/${slug}/tasks/${taskId}`);
-  revalidatePath(`/org/${slug}/projects`);
+  revalidatePath(`/org/${slug}/projects/[key]`, "page");
 }

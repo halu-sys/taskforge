@@ -2,6 +2,7 @@ import { currentSession } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { redirect } from "next/navigation";
 import { getProjectByKey } from "@/server/services/projects";
+import { NotFoundError, ForbiddenError } from "@/server/errors";
 import { listBoardTasks } from "@/server/services/tasks";
 import Board from "@/components/kanban/Board";
 
@@ -19,8 +20,9 @@ export default async function ProjectBoardPage({
   let project;
   try {
     project = await getProjectByKey(org.id, session.userId, key);
-  } catch {
-    redirect(`/org/${slug}`);
+  } catch (e) {
+    if (e instanceof NotFoundError || e instanceof ForbiddenError) redirect(`/org/${slug}`);
+    throw e;
   }
 
   const boards = project.boards;

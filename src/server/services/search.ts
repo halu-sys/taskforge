@@ -3,9 +3,11 @@ import { requireMembership } from "@/server/services/orgs";
 
 export async function search(orgId: string, actorId: string, q: string) {
   await requireMembership(orgId, actorId);
-  const term = q.trim();
+  const term = q.trim().slice(0, 100);
   if (!term) return { tasks: [], projects: [] };
-  const like = { contains: term, mode: "insensitive" as const };
+  // escape LIKE wildcards so user input can't force full-table scans
+  const escaped = term.replace(/[\\%_]/g, (c) => "\\" + c);
+  const like = { contains: escaped, mode: "insensitive" as const };
 
   const [tasks, projects] = await Promise.all([
     prisma.task.findMany({

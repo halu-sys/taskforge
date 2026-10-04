@@ -1,11 +1,14 @@
 import { prisma } from "@/server/db";
 import { requireMembership, requireRole } from "@/server/services/orgs";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/server/errors";
-import { rebalancePositions, STEP } from "@/server/services/positions";
+import { rebalancePositions, needsRebalance, STEP } from "@/server/services/positions";
 import { logActivity } from "@/server/services/activity";
 import { notify } from "@/server/services/notifications";
 import { prisma as globalPrisma } from "@/server/db";
 import type { TaskStatus, TaskPriority } from "@prisma/client";
+
+const PRIORITIES: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const STATUSES: TaskStatus[] = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"];
 
 async function projectIdForBoard(boardId: string): Promise<string | null> {
   const b = await globalPrisma.board.findUnique({ where: { id: boardId } });
@@ -43,7 +46,9 @@ export async function createTask(
   await requireMembership(orgId, actorId);
   const title = input.title.trim();
   if (!title || title.length > 500) throw new ValidationError("Invalid title");
-  await getBoardInOrg(orgId, input.boardId);
+  if (input.priority !== undefined && !PRIORITIES.includes(input.priority))
+    throw new ValidationError("Invalid priority");
+  const board = await getBoardInOrg(orgId, input.boardId);
 
   if (input.assigneeId) {
     const assignee = await prisma.membership.findUnique({
@@ -52,48 +57,52 @@ export async function createTask(
     if (!assignee) throw new ValidationError("Assignee must be an org member");
   }
 
-  const bottom = await prisma.task.findFirst({
-    where: { boardId: input.boardId },
-    orderBy: { position: "desc" },
-  });
-
-  const [task] = await prisma.$transaction([
-    prisma.task.create({
-      data: {
-        boardId: input.boardId,
-        orgId,
-        number: 0, // set below via project counter
-        title,
-        description: input.description?.trim() || null,
-        assigneeId: input.assigneeId,
-        priority: input.priority,
-        dueDate: input.dueDate,
-        createdById: actorId,
-        position: (bottom?.position ?? 0) + STEP,
-      },
-    }),
-  ]);
-  // atomic per-project number
-  const project = await prisma.$transaction(async (tx) => {
-    const p = await tx.project.findFirstOrThrow({
-      where: { boards: { some: { id: input.boardId } } },
-    });
-    const updated = await tx.project.update({
-      where: { id: p.id },
-      data: { nextNumber: p.nextNumber + 1 },
-    });
-    await tx.task.update({ where: { id: task.id }, data: { number: p.nextNumber } });
-    await logActivity(orgId, actorId, "task.created", "task", task.id, p.id, { title }, tx);
-    if (input.assigneeId && input.assigneeId !== actorId) {
-      const slug = (await tx.organization.findUniqueOrThrow({ where: { id: orgId } })).slug;
-      await tx.notification.create({
-        data: { userId: input.assigneeId, verb: "assigned", link: `/org/${slug}/tasks/${task.id}` },
+  // CAS retry: concurrent creates cannot mint duplicate task numbers.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const p = await tx.project.findUniqueOrThrow({ where: { id: board.projectId } });
+        const bottom = await tx.task.findFirst({
+          where: { boardId: input.boardId },
+          orderBy: { position: "desc" },
+        });
+        const task = await tx.task.create({
+          data: {
+            boardId: input.boardId,
+            orgId,
+            number: p.nextNumber,
+            title,
+            description: input.description?.trim() || null,
+            assigneeId: input.assigneeId,
+            priority: input.priority,
+            dueDate: input.dueDate,
+            createdById: actorId,
+            position: (bottom?.position ?? 0) + STEP,
+          },
+        });
+        const swapped = await tx.project.updateMany({
+          where: { id: p.id, nextNumber: p.nextNumber },
+          data: { nextNumber: p.nextNumber + 1 },
+        });
+        if (swapped.count !== 1) throw new CasConflict();
+        await logActivity(orgId, actorId, "task.created", "task", task.id, p.id, { title }, tx);
+        if (input.assigneeId && input.assigneeId !== actorId) {
+          const slug = (await tx.organization.findUniqueOrThrow({ where: { id: orgId } })).slug;
+          await tx.notification.create({
+            data: { userId: input.assigneeId, verb: "assigned", link: `/org/${slug}/tasks/${task.id}` },
+          });
+        }
+        return task;
       });
+    } catch (e) {
+      if (e instanceof CasConflict) continue;
+      throw e;
     }
-    return updated;
-  });
-  return prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+  }
+  throw new ValidationError("Too much concurrent activity, retry");
 }
+
+class CasConflict extends Error {}
 
 export async function getTask(orgId: string, actorId: string, taskId: string) {
   await requireMembership(orgId, actorId);
@@ -124,7 +133,10 @@ export async function updateTask(
     data.title = t;
   }
   if (patch.description !== undefined) data.description = patch.description?.trim() || null;
-  if (patch.priority !== undefined) data.priority = patch.priority;
+  if (patch.priority !== undefined) {
+    if (!PRIORITIES.includes(patch.priority)) throw new ValidationError("Invalid priority");
+    data.priority = patch.priority;
+  }
   if (patch.labels !== undefined) data.labels = patch.labels.map((l) => l.trim()).filter(Boolean).slice(0, 10);
   if (patch.dueDate !== undefined) data.dueDate = patch.dueDate;
   if (patch.assigneeId !== undefined) {
@@ -159,34 +171,35 @@ export async function moveTask(
   await assertCanMutate(orgId, actorId, task);
   await getBoardInOrg(orgId, input.boardId);
   if (!Number.isFinite(input.position)) throw new ValidationError("Invalid position");
+  if (!STATUSES.includes(input.status)) throw new ValidationError("Invalid status");
 
   const projectId = await projectIdForBoard(input.boardId);
-  const updated = await prisma.task.update({
-    where: { id: task.id },
-    data: { boardId: input.boardId, status: input.status, position: input.position },
-  });
-  if (task.status !== input.status) {
-    await logActivity(orgId, actorId, "task.moved", "task", task.id, projectId ?? undefined, {
-      from: task.status, to: input.status,
+  return prisma.$transaction(async (tx) => {
+    await tx.task.update({
+      where: { id: task.id },
+      data: { boardId: input.boardId, status: input.status, position: input.position },
     });
-  }
-
-  // rebalance if neighbors got too close
-  const column = await prisma.task.findMany({
-    where: { boardId: input.boardId },
-    orderBy: { position: "asc" },
-  });
-  for (let i = 0; i < column.length - 1; i++) {
-    if (column[i + 1].position - column[i].position < 0.01) {
-      await prisma.$transaction(
-        rebalancePositions(column.map((t) => t.id)).map((p) =>
-          prisma.task.update({ where: { id: p.id }, data: { position: p.position } }),
-        ),
-      );
-      break;
+    if (task.status !== input.status) {
+      await logActivity(orgId, actorId, "task.moved", "task", task.id, projectId ?? undefined, {
+        from: task.status, to: input.status,
+      }, tx);
     }
-  }
-  return updated;
+    // rebalance inside the same tx if neighbors got too close (capped column scan)
+    const column = await tx.task.findMany({
+      where: { boardId: input.boardId },
+      orderBy: { position: "asc" },
+      take: 500,
+    });
+    for (let i = 0; i < column.length - 1; i++) {
+      if (needsRebalance(column[i].position, column[i + 1].position)) {
+        for (const p of rebalancePositions(column.map((t) => t.id))) {
+          await tx.task.update({ where: { id: p.id }, data: { position: p.position } });
+        }
+        break;
+      }
+    }
+    return tx.task.findUniqueOrThrow({ where: { id: task.id } });
+  });
 }
 
 export async function deleteTask(orgId: string, actorId: string, taskId: string) {

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, TaskStatus, TaskPriority } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -49,7 +49,7 @@ async function main() {
     tasks.push(await prisma.task.create({
       data: {
         boardId: t.board, orgId: org.id, number: t.n, title: t.title,
-        status: t.status, assigneeId: t.assignee, priority: t.priority ?? "NONE",
+        status: t.status as TaskStatus, assigneeId: t.assignee, priority: (t.priority ?? "MEDIUM") as TaskPriority,
         labels: t.labels ?? [], createdById: ada.id, position: t.n * 1000,
       },
     }));

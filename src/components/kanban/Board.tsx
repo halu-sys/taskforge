@@ -62,11 +62,14 @@ export default function Board({
   async function drop(status: TaskStatus, beforeId: string | null) {
     if (!dragId) return;
     const position = computePosition(status, beforeId);
+    const snapshot = tasks;
     setTasks((ts) => ts.map((t) => (t.id === dragId ? { ...t, status, position } : t)));
     setDragId(null);
     setOver(null);
     try {
       await moveTaskAction(orgId, dragId, { boardId, status, position });
+    } catch {
+      setTasks(snapshot); // rollback optimistic update on failure
     } finally {
       router.refresh();
     }

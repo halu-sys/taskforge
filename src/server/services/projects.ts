@@ -11,15 +11,31 @@ export async function createProject(orgId: string, actorId: string, name: string
   await requireMembership(orgId, actorId);
   const trimmed = name.trim();
   if (!trimmed || trimmed.length > 100) throw new ValidationError("Invalid project name");
+  return createProjectWithBoard(orgId, actorId, trimmed);
+}
+
+export async function createProjectWithBoard(orgId: string, actorId: string, name: string) {
+  await requireMembership(orgId, actorId);
+  const trimmed = name.trim();
+  if (!trimmed || trimmed.length > 100) throw new ValidationError("Invalid project name");
   const org = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
 
-  // key uniqueness: try sequential numbers until free
   let n = (await prisma.project.count({ where: { orgId } })) + 1;
-  let key = projectKey(org.slug, n);
-  while (await prisma.project.findUnique({ where: { orgId_key: { orgId, key } } })) {
-    key = projectKey(org.slug, ++n);
+  for (let attempt = 0; attempt < 10; attempt++, n++) {
+    const key = projectKey(org.slug, n);
+    try {
+      // project + default board atomically
+      return await prisma.$transaction(async (tx) => {
+        const p = await tx.project.create({ data: { orgId, name, key } });
+        await tx.board.create({ data: { projectId: p.id, name: "Main" } });
+        return p;
+      });
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === "P2002") continue; // key race: try next
+      throw e;
+    }
   }
-  return prisma.project.create({ data: { orgId, name: trimmed, key } });
+  throw new ValidationError("Could not allocate a project key, retry");
 }
 
 export async function listProjects(orgId: string, actorId: string) {
