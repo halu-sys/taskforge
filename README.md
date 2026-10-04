@@ -31,7 +31,7 @@ Demo login: `ada@taskforge.dev` / `taskforge-dev` (also bob@ / carol@, same pass
 | `npm run setup` | migrate + seed |
 | `npm run seed` | seed demo data only |
 
-## What's here (Plans 1-2)
+## What's here (Plans 1-3 — complete)
 
 **Plan 1 — Foundation**
 - Email+password auth, httpOnly cookie sessions, route middleware
@@ -47,5 +47,13 @@ Demo login: `ada@taskforge.dev` / `taskforge-dev` (also bob@ / carol@, same pass
 - Org-scoped search (tasks + projects, case-insensitive)
 - Rich seed: 2 projects, 10 tasks, comments, activity, notifications
 
-Plan 3 (billing: checkout, invoices, proration, dunning, plan limits) builds on this. See
-`docs/superpowers/specs/` and `docs/superpowers/plans/`.
+**Plan 3 — Billing**
+- Plan catalog (Free / Pro $10 / Business $20 per seat/mo) with enforced limits (members, projects, tasks) + upsell prompts
+- Subscriptions: subscribe/switch (OWNER-only), cancel-at-period-end, resume, lazy expiry
+- FakeProvider payment abstraction (card 4000000000000002 always declines) + atomic checkout (sub + PAID invoice + payment in one tx)
+- Invoices: sequential INV-YYYY-#### numbers, list + detail pages, lines and payments
+- Seats + integer proration (half-up, BigInt math): increase charges immediately, decrease applies next period
+- Renewal + dunning: lazy renewal on billing read, PAST_DUE grace with UNCOLLECTED invoices, 3-strike cancel
+- Seed: Acme on Pro (3 seats, 2 invoices) + Freddie's Shop on Free at project limit (upsell demo)
+
+Demo logins: ada@taskforge.dev / taskforge-dev (Acme owner), freddie@taskforge.dev (same password).
