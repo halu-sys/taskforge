@@ -19,3 +19,9 @@ Mode: inline, continuous.
 - Ruling: comment activity logs projectId undefined (Comment has no direct project link; taskId in payload suffices for demo feed) — cheap to backfill later.
 - Ruling: search box uses plain GET form (method=get) not a server action — search is read-only, no mutation needed.
 - Ruling: seed deletes org first (cascade) then users; dev server must be restarted after schema migrations or it serves a stale Prisma client (500 on archivedAt) — recurring gotcha.
+
+## Final review (whole-branch, fresh context)
+- 0 BLOCKER, 10 MAJOR (all concurrency/consistency, tenant isolation clean), 7 MINOR.
+- Fixed in ef6e45f: CAS task numbering (single tx + retry), rebalance inside move tx (capped 500), optimistic drag rollback, revalidatePath for /projects/[key], P2002 key-race retry, project+board atomic create, search LIKE-wildcard escaping, mention exact-token matching, org-scoped status lookup in updateTaskFieldAction, enum validation.
+- Deferred MINORs (acceptable for demo): positions.ts helpers still client-duplicated, notify() unused, activity projectId filter, feed limit clamp, blanket catch in 2 more pages.
+- 4 new tests (concurrent numbering, rebalance path, task.moved activity, enum rejection). 66 green, build clean.
