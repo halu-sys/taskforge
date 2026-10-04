@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireRole } from "@/server/services/orgs";
+import { assertWithinLimit } from "@/server/services/entitlements";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import { logActivity } from "@/server/services/activity";
 import type { Role } from "@prisma/client";
@@ -16,6 +17,7 @@ export async function createInvitation(
   role: Role,
 ) {
   await requireRole(orgId, actorId, "ADMIN");
+  await assertWithinLimit(orgId, "members");
   const parsed = emailSchema.safeParse(email);
   if (!parsed.success) throw new ValidationError("Invalid email address");
   const normalized = parsed.data;

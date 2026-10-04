@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { createInvitation, acceptInvitation, revokeInvitation, listInvitations } from "@/server/services/invitations";
+import { ensurePlans } from "@/server/services/entitlements";
 import { ForbiddenError } from "@/server/errors";
 
 const prisma = new PrismaClient();
 let orgId: string, admin: string, member: string, guest: string;
 
 beforeAll(async () => {
+  await ensurePlans(prisma);
   await prisma.organization.deleteMany({ where: { slug: { in: ["inv-test", "inv-other"] } } });
   await prisma.user.deleteMany({ where: { email: { in: ["admin@inv.test", "mem@inv.test", "guest@inv.test", "dbl@inv.test"] } } });
   const mk = (e: string) => prisma.user.create({ data: { email: e, name: e, passwordHash: "x" } });
@@ -18,7 +20,13 @@ beforeAll(async () => {
       memberships: { create: [
         { userId: admin, role: "ADMIN" },
         { userId: member, role: "MEMBER" },
-      ] } },
+      ] },
+      // pro plan so member-limit entitlements don't interfere with invitation tests
+      subscription: { create: {
+        planId: (await prisma.plan.findUniqueOrThrow({ where: { slug: "pro" } })).id,
+        status: "ACTIVE", currentPeriodEnd: new Date(Date.now() + 86400_000),
+      } },
+    },
   });
   orgId = org.id;
 });

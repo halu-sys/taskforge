@@ -3,6 +3,7 @@ import { requireMembership, requireRole } from "@/server/services/orgs";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/server/errors";
 import { rebalancePositions, needsRebalance, STEP } from "@/server/services/positions";
 import { logActivity } from "@/server/services/activity";
+import { assertWithinLimit } from "@/server/services/entitlements";
 import { notify } from "@/server/services/notifications";
 import { prisma as globalPrisma } from "@/server/db";
 import type { TaskStatus, TaskPriority } from "@prisma/client";
@@ -44,6 +45,7 @@ export async function createTask(
   input: { boardId: string; title: string; description?: string; assigneeId?: string; priority?: TaskPriority; dueDate?: Date },
 ) {
   await requireMembership(orgId, actorId);
+  await assertWithinLimit(orgId, "tasks");
   const title = input.title.trim();
   if (!title || title.length > 500) throw new ValidationError("Invalid title");
   if (input.priority !== undefined && !PRIORITIES.includes(input.priority))

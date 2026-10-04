@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { requireMembership, requireRole } from "@/server/services/orgs";
 import { NotFoundError, ValidationError } from "@/server/errors";
+import { assertWithinLimit } from "@/server/services/entitlements";
 
 function projectKey(orgSlug: string, n: number): string {
   const prefix = orgSlug.replace(/[^a-z0-9]/g, "").toUpperCase().slice(0, 8) || "PRJ";
@@ -16,6 +17,7 @@ export async function createProject(orgId: string, actorId: string, name: string
 
 export async function createProjectWithBoard(orgId: string, actorId: string, name: string) {
   await requireMembership(orgId, actorId);
+  await assertWithinLimit(orgId, "projects");
   const trimmed = name.trim();
   if (!trimmed || trimmed.length > 100) throw new ValidationError("Invalid project name");
   const org = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
