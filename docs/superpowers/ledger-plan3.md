@@ -10,6 +10,19 @@ Plan: docs/superpowers/plans/2026-10-04-plan3-billing.md
 - [x] T6 Renewal + dunning
 - [x] T7 UI polish + seed + hardening
 
+## Final review (whole-branch, fresh context)
+- 1 BLOCKER + 7 MAJOR + 10 MINOR. All BLOCKER/MAJOR fixed in the follow-up commit:
+  - BLOCKER: billing page ran expireIfNeeded/renewSubscription BEFORE membership check -> requireRole(MEMBER) first; renew/expire take actorId (null=system).
+  - Renewal + checkout races: SELECT ... FOR UPDATE on the Subscription row inside the tx; concurrent test proves 1 charge / 1 strike.
+  - Checkout idempotency: same-plan re-checkout rejected; upgrade charges; downgrade scheduled via pendingPlanId (applied at renewal).
+  - Seat enforcement: member cap = min(plan.maxMembers, sub.seats).
+  - Proration: real currentPeriodStart/End columns (migration), no synthetic 30/365 reconstruction.
+  - Seed invoice numbers now consume the real Counter (no P2002 collision).
+  - Payment method persisted (paymentToken); auto-renewal only from stored card; PAST_DUE retry requires explicit retryCard (OWNER action + banner button).
+  - MINORs also fixed: atomic INSERT..RETURNING counter, addInterval day-clamp (billing/period.ts), subscribe() no longer resurrects PAST_DUE or clears dunning, actions catch AppError + revalidatePath layout, scripts/renew.ts added, PAST_DUE+cancelAtPeriodEnd handled.
+- Deferred MINORs: TRIALING enum arm still unused (schema default only), charge-before-tx compensation shape (FakeProvider-safe), layout nav plan chip.
+- New tests: billing-races.test.ts (outsider renewal blocked, concurrent checkout, concurrent renewal, seat cap, downgrade scheduling), re-checkout rejection. 111 green, build clean, seed re-run clean.
+
 ## Rulings & gotchas
 - prorate() uses BigInt half-up (target < ES2020 bans 2n literals — use BigInt(2)).
 - logActivity projectId param is string|undefined — pass undefined, not null.
