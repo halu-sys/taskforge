@@ -1,12 +1,14 @@
 import { PrismaClient, TaskStatus, TaskPriority } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { ensurePlans } from "../src/server/services/entitlements";
 
 const prisma = new PrismaClient();
 
 async function main() {
   const pw = await bcrypt.hash("taskforge-dev", 10);
-  const emails = ["ada@taskforge.dev", "bob@taskforge.dev", "carol@taskforge.dev"];
-  await prisma.organization.deleteMany({ where: { slug: "acme" } }); // cascades projects/tasks/comments
+  const emails = ["ada@taskforge.dev", "bob@taskforge.dev", "carol@taskforge.dev", "freddie@taskforge.dev"];
+  await prisma.organization.deleteMany({ where: { slug: { in: ["acme", "freddie"] } } }); // cascades projects/tasks/comments/subscriptions/invoices
+  await prisma.counter.deleteMany({ where: { key: { startsWith: "invoice_seq_" } } });
   await prisma.notification.deleteMany({ where: { user: { email: { in: emails } } } });
   await prisma.session.deleteMany({ where: { user: { email: { in: emails } } } });
   await prisma.user.deleteMany({ where: { email: { in: emails } } });
@@ -70,27 +72,38 @@ async function main() {
   await prisma.notification.create({ data: { userId: bob.id, verb: "mention", link: `/org/acme/tasks/${tasks[1].id}` } });
   await prisma.notification.create({ data: { userId: carol.id, verb: "assigned", link: `/org/acme/tasks/${tasks[4].id}` } });
 
-  const plan = await prisma.plan.upsert({
-    where: { slug: "free" },
-    update: {},
-    create: { slug: "free", name: "Free", priceCents: 0, maxMembers: 3, maxProjects: 2, maxTasksPerOrg: 20, features: {} },
+  await ensurePlans(prisma);
+  const pro = await prisma.plan.findUniqueOrThrow({ where: { slug: "pro" } });
+  const periodEnd = new Date(Date.now() + 20 * 864e5);
+  const sub = await prisma.subscription.create({
+    data: { orgId: org.id, planId: pro.id, status: "ACTIVE", seats: 3, currentPeriodEnd: periodEnd },
   });
-  await prisma.plan.upsert({
-    where: { slug: "pro" },
-    update: {},
-    create: { slug: "pro", name: "Pro", priceCents: 1000, maxMembers: 20, maxProjects: 20, maxTasksPerOrg: 500, features: {} },
-  });
-  await prisma.plan.upsert({
-    where: { slug: "team" },
-    update: {},
-    create: { slug: "team", name: "Team", priceCents: 2500, maxMembers: 100, maxProjects: 100, maxTasksPerOrg: 5000, features: {} },
-  });
-  await prisma.subscription.create({
-    data: { orgId: org.id, planId: plan.id, status: "ACTIVE", currentPeriodEnd: new Date(Date.now() + 30 * 864e5) },
-  });
+  // two paid invoices for the demo
+  for (let i = 1; i <= 2; i++) {
+    const start = new Date(Date.now() - i * 30 * 864e5);
+    const end = new Date(start.getTime() + 30 * 864e5);
+    await prisma.invoice.create({
+      data: {
+        orgId: org.id, subscriptionId: sub.id, number: `INV-2026-000${i}`,
+        status: "PAID", amountCents: 3000, periodStart: start, periodEnd: end, paidAt: start,
+        lines: { create: [{ description: "Pro: 3 seats × 10.00/mo", amountCents: 3000 }] },
+        payments: { create: [{ providerId: `fake_seed_${i}`, amountCents: 3000, status: "SUCCEEDED" }] },
+      },
+    });
+  }
 
-  console.log("Seeded: org 'acme' (ada=OWNER, bob=ADMIN, carol=MEMBER), plans free/pro/team.");
-  console.log("Login: ada@taskforge.dev / taskforge-dev");
+  // second org on the free plan, at its project limit (upsell demo)
+  const freddie = await prisma.user.create({ data: { email: "freddie@taskforge.dev", name: "Freddie", passwordHash: pw } });
+  const forg = await prisma.organization.create({
+    data: { name: "Freddie's Shop", slug: "freddie", memberships: { create: { userId: freddie.id, role: "OWNER" } } },
+  });
+  for (let i = 1; i <= 3; i++) {
+    const p = await prisma.project.create({ data: { orgId: forg.id, name: `Project ${i}`, key: `FRED-${i}` } });
+    await prisma.board.create({ data: { projectId: p.id, name: "Main" } });
+  }
+
+  console.log("Seeded: 'acme' (pro, 3 seats, 2 invoices) + 'freddie' (free, at project limit).");
+  console.log("Login: ada@taskforge.dev / taskforge-dev — also freddie@taskforge.dev");
 }
 
 main().finally(() => prisma.$disconnect());

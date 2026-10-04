@@ -48,7 +48,7 @@ export async function subscribe(orgId: string, actorId: string, planSlug: string
       orgId, planId: plan.id, status: "ACTIVE", currentPeriodEnd: periodEnd,
     },
   });
-  await logActivity(orgId, actorId, "subscription.changed", "subscription", sub.id, null, { plan: plan.slug });
+  await logActivity(orgId, actorId, "subscription.changed", "subscription", sub.id, undefined, { plan: plan.slug });
   return getSubscription(orgId) as Promise<SubscriptionWithPlan>;
 }
 
@@ -71,7 +71,7 @@ export async function expireIfNeeded(orgId: string) {
   if (!sub || sub.status === "CANCELED") return;
   if (sub.currentPeriodEnd < new Date() && sub.cancelAtPeriodEnd) {
     await prisma.subscription.update({ where: { orgId }, data: { status: "CANCELED" } });
-    await logActivity(orgId, null, "subscription.canceled", "subscription", sub.id, null, { reason: "period_end" });
+    await logActivity(orgId, null, "subscription.canceled", "subscription", sub.id, undefined, { reason: "period_end" });
   }
 }
 
@@ -96,7 +96,7 @@ export async function changeSeats(
 
   if (newSeats < sub.seats) {
     const updated = await prisma.subscription.update({ where: { orgId }, data: { seats: newSeats } });
-    await logActivity(orgId, actorId, "subscription.seats", "subscription", sub.id, null, { seats: newSeats });
+    await logActivity(orgId, actorId, "subscription.seats", "subscription", sub.id, undefined, { seats: newSeats });
     return { subscription: updated, invoice: null };
   }
 
@@ -121,7 +121,7 @@ export async function changeSeats(
           payments: { create: [{ providerId: result.providerId!, amountCents, status: "SUCCEEDED" }] },
         },
       });
-      await logActivity(orgId, actorId, "subscription.seats", "subscription", sub.id, null, { seats: newSeats, invoice: invoice.number }, tx);
+      await logActivity(orgId, actorId, "subscription.seats", "subscription", sub.id, undefined, { seats: newSeats, invoice: invoice.number }, tx);
       return { subscription: updated, invoice };
     });
   }
@@ -147,7 +147,7 @@ export async function renewSubscription(
 
   if (sub.cancelAtPeriodEnd) {
     await prisma.subscription.update({ where: { orgId }, data: { status: "CANCELED" } });
-    await logActivity(orgId, null, "subscription.canceled", "subscription", sub.id, null, { reason: "period_end" });
+    await logActivity(orgId, null, "subscription.canceled", "subscription", sub.id, undefined, { reason: "period_end" });
     return { outcome: "canceled" };
   }
 
@@ -192,7 +192,7 @@ export async function renewSubscription(
       },
     });
     if (canceled) {
-      await logActivity(orgId, null, "subscription.canceled", "subscription", sub.id, null, { reason: "dunning" }, tx);
+      await logActivity(orgId, null, "subscription.canceled", "subscription", sub.id, undefined, { reason: "dunning" }, tx);
     }
   });
   return { outcome: canceled ? "canceled" : "failed" };

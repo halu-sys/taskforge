@@ -63,7 +63,7 @@ export async function checkout(
         payments: { create: [{ providerId: result.providerId!, amountCents, status: "SUCCEEDED" }] },
       },
     });
-    await logActivity(orgId, actorId, "subscription.changed", "subscription", subscription.id, null, { plan: plan.slug, invoice: invoice.number }, tx);
+    await logActivity(orgId, actorId, "subscription.changed", "subscription", subscription.id, undefined, { plan: plan.slug, invoice: invoice.number }, tx);
     return { subscription, invoice };
   });
 }
