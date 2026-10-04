@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { currentSession } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { checkout } from "@/server/services/checkout";
-import { setCancelAtPeriodEnd, resume, changeSeats } from "@/server/services/subscriptions";
+import { setCancelAtPeriodEnd, resume, changeSeats, renewSubscription } from "@/server/services/subscriptions";
 import { FakeProvider } from "@/server/billing/provider";
 import { AppError } from "@/server/errors";
 
@@ -26,7 +26,7 @@ export async function checkoutAction(slug: string, fd: FormData) {
   } catch (e) {
     redirect(`/org/${slug}/billing?error=${encodeURIComponent(e instanceof AppError ? e.message : "Checkout failed")}`);
   }
-  revalidatePath(`/org/${slug}/billing`);
+  revalidatePath(`/org/${slug}/billing`, "layout");
   redirect(`/org/${slug}/billing?ok=Subscribed`);
 }
 
@@ -35,8 +35,12 @@ export async function cancelAtPeriodEndAction(slug: string) {
   if (!session) redirect("/login");
   const orgId = await orgIdFor(slug);
   if (!orgId) redirect("/org");
-  await setCancelAtPeriodEnd(orgId, session.userId, true);
-  revalidatePath(`/org/${slug}/billing`);
+  try {
+    await setCancelAtPeriodEnd(orgId, session.userId, true);
+  } catch (e) {
+    redirect(`/org/${slug}/billing?error=${encodeURIComponent(e instanceof AppError ? e.message : "Action failed")}`);
+  }
+  revalidatePath(`/org/${slug}/billing`, "layout");
 }
 
 export async function resumeAction(slug: string) {
@@ -44,8 +48,27 @@ export async function resumeAction(slug: string) {
   if (!session) redirect("/login");
   const orgId = await orgIdFor(slug);
   if (!orgId) redirect("/org");
-  await resume(orgId, session.userId);
-  revalidatePath(`/org/${slug}/billing`);
+  try {
+    await resume(orgId, session.userId);
+  } catch (e) {
+    redirect(`/org/${slug}/billing?error=${encodeURIComponent(e instanceof AppError ? e.message : "Action failed")}`);
+  }
+  revalidatePath(`/org/${slug}/billing`, "layout");
+}
+
+export async function retryPaymentAction(slug: string, fd: FormData) {
+  const session = await currentSession();
+  if (!session) redirect("/login");
+  const orgId = await orgIdFor(slug);
+  if (!orgId) redirect("/org");
+  const card = String(fd.get("card") ?? "").replace(/\s+/g, "");
+  try {
+    const res = await renewSubscription(orgId, session.userId, new FakeProvider(), { retryCard: card });
+    if (res.outcome === "failed") redirect(`/org/${slug}/billing?error=${encodeURIComponent("Card still declined")}`);
+  } catch (e) {
+    redirect(`/org/${slug}/billing?error=${encodeURIComponent(e instanceof AppError ? e.message : "Retry failed")}`);
+  }
+  revalidatePath(`/org/${slug}/billing`, "layout");
 }
 
 export async function changeSeatsAction(slug: string, fd: FormData) {
@@ -54,12 +77,13 @@ export async function changeSeatsAction(slug: string, fd: FormData) {
   const orgId = await orgIdFor(slug);
   if (!orgId) redirect("/org");
   const seats = parseInt(String(fd.get("seats") ?? ""), 10);
-  const card = String(fd.get("card") ?? "4242424242424242").replace(/\s+/g, "");
+  const card = String(fd.get("card") ?? "").replace(/\s+/g, "");
   try {
-    if (Number.isInteger(seats)) await changeSeats(orgId, session.userId, seats, new FakeProvider(), card);
+    if (Number.isInteger(seats)) {
+      await changeSeats(orgId, session.userId, seats, new FakeProvider(), card || undefined);
+    }
   } catch (e) {
-    revalidatePath(`/org/${slug}/billing`);
-    redirect(`/org/${slug}/billing?error=${encodeURIComponent(e instanceof Error ? e.message : "Seat change failed")}`);
+    redirect(`/org/${slug}/billing?error=${encodeURIComponent(e instanceof AppError ? e.message : "Seat change failed")}`);
   }
-  revalidatePath(`/org/${slug}/billing`);
+  revalidatePath(`/org/${slug}/billing`, "layout");
 }

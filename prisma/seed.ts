@@ -78,13 +78,16 @@ async function main() {
   const sub = await prisma.subscription.create({
     data: { orgId: org.id, planId: pro.id, status: "ACTIVE", seats: 3, currentPeriodEnd: periodEnd },
   });
-  // two paid invoices for the demo
+  // two paid invoices for the demo (advance the real counter so numbers never collide)
+  const { nextCounter } = await import("../src/server/billing/invoiceNumber");
+  const year = new Date().getFullYear();
   for (let i = 1; i <= 2; i++) {
+    const n = await nextCounter(`invoice_seq_${year}`);
     const start = new Date(Date.now() - i * 30 * 864e5);
     const end = new Date(start.getTime() + 30 * 864e5);
     await prisma.invoice.create({
       data: {
-        orgId: org.id, subscriptionId: sub.id, number: `INV-2026-000${i}`,
+        orgId: org.id, subscriptionId: sub.id, number: `INV-${year}-${String(n).padStart(4, "0")}`,
         status: "PAID", amountCents: 3000, periodStart: start, periodEnd: end, paidAt: start,
         lines: { create: [{ description: "Pro: 3 seats × 10.00/mo", amountCents: 3000 }] },
         payments: { create: [{ providerId: `fake_seed_${i}`, amountCents: 3000, status: "SUCCEEDED" }] },

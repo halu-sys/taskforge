@@ -236,7 +236,10 @@ model Subscription {
   planId             String
   status             SubscriptionStatus @default(TRIALING)
   seats              Int                @default(1)
+  currentPeriodStart DateTime           @default(now())
   currentPeriodEnd   DateTime
+  pendingPlanId      String?            // downgrade scheduled at period end
+  paymentToken       String?            // stored (fake) payment method reference
   trialEndsAt        DateTime?
   cancelAtPeriodEnd  Boolean            @default(false)
   providerId         String?            // id at the (fake) payment provider

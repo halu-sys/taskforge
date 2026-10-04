@@ -47,6 +47,9 @@ export async function assertWithinLimit(orgId: string, kind: "projects" | "membe
   } else {
     const members = await prisma.membership.count({ where: { orgId } });
     const pending = await prisma.invitation.count({ where: { orgId, acceptedAt: null, expiresAt: { gt: new Date() } } });
-    if (members + pending >= limits.maxMembers) throw new PlanLimitError(`The ${limits.planName} plan allows up to ${limits.maxMembers} members`);
+    // paid seats cap members below the plan ceiling when a subscription exists
+    const sub = await prisma.subscription.findUnique({ where: { orgId }, include: { plan: true } });
+    const seatCap = sub && sub.status !== "CANCELED" ? Math.min(sub.plan.maxMembers, sub.seats) : limits.maxMembers;
+    if (members + pending >= seatCap) throw new PlanLimitError(`Your plan allows up to ${seatCap} members (paid seats: ${sub?.seats ?? limits.maxMembers})`);
   }
 }

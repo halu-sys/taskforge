@@ -37,13 +37,13 @@ describe("checkout", () => {
     const seats = 2; // owner + 1 member added in the previous test
     const res = await checkout(orgId, owner, "pro", "4242424242424242", new FakeProvider());
     expect(res.subscription.status).toBe("ACTIVE");
-    expect(res.invoice.status).toBe("PAID");
+    expect(res.invoice!.status).toBe("PAID");
     // pro = 1000 cents/seat/mo, seats = current member count (2)
-    expect(res.invoice.amountCents).toBe(2000);
-    const lines = await prisma.invoiceLine.findMany({ where: { invoiceId: res.invoice.id } });
+    expect(res.invoice!.amountCents).toBe(2000);
+    const lines = await prisma.invoiceLine.findMany({ where: { invoiceId: res.invoice!.id } });
     expect(lines.length).toBe(1);
     expect(lines[0].amountCents).toBe(2000);
-    const pay = await prisma.payment.findMany({ where: { invoiceId: res.invoice.id } });
+    const pay = await prisma.payment.findMany({ where: { invoiceId: res.invoice!.id } });
     expect(pay[0].status).toBe("SUCCEEDED");
     expect(pay[0].providerId).toMatch(/^fake_/);
   });
@@ -54,7 +54,12 @@ describe("checkout", () => {
     expect(nums[0].number).toMatch(/^INV-\d{4}-\d{4}$/);
   });
 
-  it("re-checkout (plan change) creates a second invoice", async () => {
+  it("re-checkout same plan rejected", async () => {
+    await expect(checkout(orgId, owner, "pro", "4242424242424242", new FakeProvider()))
+      .rejects.toThrow(/already subscribed/i);
+  });
+
+  it("re-checkout (upgrade) creates a second invoice", async () => {
     const res = await checkout(orgId, owner, "business", "4242424242424242", new FakeProvider());
     const plan = await prisma.plan.findUniqueOrThrow({ where: { id: res.subscription.planId } });
     expect(plan.slug).toBe("business");

@@ -7,7 +7,7 @@ import { PLAN_CATALOG } from "@/server/services/entitlements";
 import { FakeProvider } from "@/server/billing/provider";
 import { requireRole } from "@/server/services/orgs";
 import {
-  checkoutAction, cancelAtPeriodEndAction, resumeAction, changeSeatsAction,
+  checkoutAction, cancelAtPeriodEndAction, resumeAction, changeSeatsAction, retryPaymentAction,
 } from "@/server/services/billing-actions";
 import { NotFoundError, ForbiddenError } from "@/server/errors";
 
@@ -28,15 +28,19 @@ export default async function BillingPage({
   const org = await prisma.organization.findUnique({ where: { slug } });
   if (!org) redirect("/org");
 
-  // lazy renewal/expiry on billing read
+  // membership FIRST, then lazy renewal/expiry (system actor after check)
   try {
-    await expireIfNeeded(org.id);
-    await renewSubscription(org.id, new FakeProvider());
-  } catch { /* best-effort */ }
+    await requireRole(org.id, session.userId, "MEMBER");
+    await expireIfNeeded(org.id, null);
+    await renewSubscription(org.id, null, new FakeProvider());
+  } catch (e) {
+    if (e instanceof NotFoundError || e instanceof ForbiddenError) redirect(`/org/${slug}`);
+    // renewal failures are surfaced via the PAST_DUE banner, not thrown
+  }
 
   let sub, invoices;
   try {
-    sub = await getSubscription(org.id);
+    sub = await getSubscription(org.id, session.userId);
     invoices = await listInvoices(org.id, session.userId);
   } catch (e) {
     if (e instanceof NotFoundError || e instanceof ForbiddenError) redirect(`/org/${slug}`);
@@ -57,9 +61,14 @@ export default async function BillingPage({
       {ok && <div className="rounded bg-green-100 text-green-800 p-3">{ok}</div>}
 
       {sub && sub.status === "PAST_DUE" && (
-        <div className="rounded bg-amber-100 text-amber-900 p-3">
-          Payment failed ({sub.dunningFailures}/3). The next billing-page visit retries automatically.
-          After 3 failures the subscription is canceled.
+        <div className="rounded bg-amber-100 text-amber-900 p-3 space-y-2">
+          <p>Payment failed ({sub.dunningFailures}/3). After 3 failures the subscription is canceled.</p>
+          {isOwner && (
+            <form action={retryPaymentAction.bind(null, slug)} className="flex gap-2">
+              <input name="card" placeholder="Card number" defaultValue="4242424242424242" className="border rounded p-1 text-sm" />
+              <button className="rounded bg-amber-600 text-white px-3 py-1">Retry payment</button>
+            </form>
+          )}
         </div>
       )}
 

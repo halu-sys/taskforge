@@ -28,7 +28,7 @@ beforeAll(async () => {
   otherOrgId = b.id;
 
   await checkout(orgId, owner, "pro", "4242424242424242", new FakeProvider());
-  await checkout(orgId, owner, "pro", "4242424242424242", new FakeProvider());
+  await checkout(orgId, owner, "business", "4242424242424242", new FakeProvider()); // upgrade = second invoice
   await checkout(otherOrgId, otherOwner, "pro", "4242424242424242", new FakeProvider());
 });
 

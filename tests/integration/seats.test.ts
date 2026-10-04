@@ -27,10 +27,13 @@ describe("seats + proration", () => {
   });
 
   it("increase seats mid-period charges prorated amount immediately", async () => {
-    // push period end to exactly 15 days out so proration = half of 1000
+    // real period spanning 30 days, half remaining -> proration = half of 1000
     await prisma.subscription.update({
       where: { orgId },
-      data: { currentPeriodEnd: new Date(Date.now() + 15 * 86400_000) },
+      data: {
+        currentPeriodStart: new Date(Date.now() - 15 * 86400_000),
+        currentPeriodEnd: new Date(Date.now() + 15 * 86400_000),
+      },
     });
     const before = await prisma.invoice.count({ where: { orgId } });
     const res = await changeSeats(orgId, owner, 2, new FakeProvider());
@@ -53,7 +56,10 @@ describe("seats + proration", () => {
   it("declined proration charge leaves seats unchanged", async () => {
     await prisma.subscription.update({
       where: { orgId },
-      data: { currentPeriodEnd: new Date(Date.now() + 10 * 86400_000) },
+      data: {
+        currentPeriodStart: new Date(Date.now() - 20 * 86400_000),
+        currentPeriodEnd: new Date(Date.now() + 10 * 86400_000),
+      },
     });
     await expect(changeSeats(orgId, owner, 5, new FakeProvider(), "4000000000000002")).rejects.toThrow(/declined/i);
     const sub = await prisma.subscription.findUniqueOrThrow({ where: { orgId } });

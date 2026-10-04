@@ -27,7 +27,7 @@ beforeAll(async () => {
       subscription: {
         create: {
           planId: (await prisma.plan.findUniqueOrThrow({ where: { slug: "pro" } })).id,
-          status: "ACTIVE", currentPeriodEnd: new Date(Date.now() + 86400_000),
+          status: "ACTIVE", seats: 25, currentPeriodEnd: new Date(Date.now() + 86400_000),
         },
       },
     },

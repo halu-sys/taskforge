@@ -6,11 +6,11 @@ export async function nextCounter(
   key: string,
   client: Prisma.TransactionClient = prisma,
 ): Promise<number> {
-  await client.$executeRaw`
-    INSERT INTO "Counter" (key, value) VALUES (${key}, 1)
-    ON CONFLICT (key) DO UPDATE SET value = "Counter".value + 1`;
+  // single atomic statement; RETURNING avoids snapshot staleness
   const rows = await client.$queryRaw<{ value: number }[]>`
-    SELECT value FROM "Counter" WHERE key = ${key}`;
+    INSERT INTO "Counter" (key, value) VALUES (${key}, 1)
+    ON CONFLICT (key) DO UPDATE SET value = "Counter".value + 1
+    RETURNING value`;
   return rows[0].value;
 }
 
