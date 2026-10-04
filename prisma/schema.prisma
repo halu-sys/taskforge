@@ -129,7 +129,9 @@ model Project {
   id        String   @id @default(cuid())
   orgId     String
   name      String
-  key       String   // short code e.g. "ACME1"
+  key       String   // short code e.g. "ACME-1"
+  nextNumber Int     @default(1)
+  archivedAt DateTime?
   createdAt DateTime @default(now())
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   boards    Board[]
