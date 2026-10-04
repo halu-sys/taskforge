@@ -4,3 +4,8 @@ node_modules/
 .env.test
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+.env*
+CASE_STUDY_TLDR.md
+CASE_STUDY.md
