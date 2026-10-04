@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireRole } from "@/server/services/orgs";
 import { NotFoundError, ValidationError } from "@/server/errors";
+import { logActivity } from "@/server/services/activity";
 import type { Role } from "@prisma/client";
 
 const INVITE_DAYS = 7;
@@ -66,6 +67,7 @@ export async function acceptInvitation(token: string, userId: string) {
     prisma.membership.create({ data: { orgId: inv.orgId, userId, role: inv.role } }),
     prisma.invitation.update({ where: { id: inv.id }, data: { acceptedAt: new Date() } }),
   ]);
+  await logActivity(inv.orgId, userId, "member.joined", "member", userId);
   return membership;
 }
 

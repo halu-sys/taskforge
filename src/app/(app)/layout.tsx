@@ -3,6 +3,7 @@ import { currentSession } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { logoutAction } from "@/server/auth/actions";
 import { switchOrgAction } from "@/server/services/org-actions";
+import NotificationBell from "@/components/NotificationBell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await currentSession();
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           ))}
         </nav>
         <span className="text-gray-500">{user.email}</span>
+        <NotificationBell userId={user.id} />
         <form action={logoutAction}>
           <button className="underline">Sign out</button>
         </form>

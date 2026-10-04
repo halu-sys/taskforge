@@ -54,3 +54,33 @@ export async function deleteTaskAction(orgId: string, taskId: string) {
   const slug = await orgSlug(orgId);
   revalidatePath(`/org/${slug}`);
 }
+
+export async function addCommentAction(orgId: string, taskId: string, fd: FormData): Promise<void> {
+  const userId = await actor();
+  const { addComment } = await import("@/server/services/comments");
+  await addComment(orgId, userId, taskId, String(fd.get("body") ?? ""));
+  const slug = await orgSlug(orgId);
+  revalidatePath(`/org/${slug}/tasks/${taskId}`);
+}
+
+export async function updateTaskFieldAction(
+  orgId: string,
+  taskId: string,
+  field: "status" | "assignee" | "priority",
+  fd: FormData,
+): Promise<void> {
+  const userId = await actor();
+  if (field === "status") {
+    const status = String(fd.get("status") ?? "") as TaskStatus;
+    const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+    await moveTask(orgId, userId, taskId, { boardId: task.boardId, status, position: task.position });
+  } else if (field === "assignee") {
+    const v = String(fd.get("assigneeId") ?? "");
+    await updateTask(orgId, userId, taskId, { assigneeId: v === "" ? null : v });
+  } else {
+    await updateTask(orgId, userId, taskId, { priority: String(fd.get("priority") ?? "NONE") as TaskPriority });
+  }
+  const slug = await orgSlug(orgId);
+  revalidatePath(`/org/${slug}/tasks/${taskId}`);
+  revalidatePath(`/org/${slug}/projects`);
+}

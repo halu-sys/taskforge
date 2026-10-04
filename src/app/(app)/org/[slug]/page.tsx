@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { listProjects } from "@/server/services/projects";
 import Link from "next/link";
 import { createProjectAction } from "@/server/services/project-actions";
+import ActivityFeed from "@/components/ActivityFeed";
 
 export default async function OrgSlugPage({
   params,
@@ -47,6 +48,8 @@ export default async function OrgSlugPage({
           <p className="text-gray-500">No projects yet — create one above.</p>
         )}
       </div>
+
+      <ActivityFeed orgId={org.id} userId={session.userId} />
     </main>
   );
 }

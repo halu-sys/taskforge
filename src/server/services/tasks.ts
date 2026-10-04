@@ -2,7 +2,15 @@ import { prisma } from "@/server/db";
 import { requireMembership, requireRole } from "@/server/services/orgs";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/server/errors";
 import { rebalancePositions, STEP } from "@/server/services/positions";
+import { logActivity } from "@/server/services/activity";
+import { notify } from "@/server/services/notifications";
+import { prisma as globalPrisma } from "@/server/db";
 import type { TaskStatus, TaskPriority } from "@prisma/client";
+
+async function projectIdForBoard(boardId: string): Promise<string | null> {
+  const b = await globalPrisma.board.findUnique({ where: { id: boardId } });
+  return b?.projectId ?? null;
+}
 
 async function getTaskInOrg(orgId: string, taskId: string) {
   const t = await prisma.task.findUnique({ where: { id: taskId } });
@@ -75,6 +83,13 @@ export async function createTask(
       data: { nextNumber: p.nextNumber + 1 },
     });
     await tx.task.update({ where: { id: task.id }, data: { number: p.nextNumber } });
+    await logActivity(orgId, actorId, "task.created", "task", task.id, p.id, { title }, tx);
+    if (input.assigneeId && input.assigneeId !== actorId) {
+      const slug = (await tx.organization.findUniqueOrThrow({ where: { id: orgId } })).slug;
+      await tx.notification.create({
+        data: { userId: input.assigneeId, verb: "assigned", link: `/org/${slug}/tasks/${task.id}` },
+      });
+    }
     return updated;
   });
   return prisma.task.findUniqueOrThrow({ where: { id: task.id } });
@@ -120,7 +135,18 @@ export async function updateTask(
       data.assigneeId = patch.assigneeId;
     }
   }
-  return prisma.task.update({ where: { id: task.id }, data });
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.task.update({ where: { id: task.id }, data });
+    const projectId = await projectIdForBoard(task.boardId);
+    await logActivity(orgId, actorId, "task.updated", "task", task.id, projectId ?? undefined, { fields: Object.keys(data) }, tx);
+    if (data.assigneeId && data.assigneeId !== actorId && data.assigneeId !== task.assigneeId) {
+      const slug = (await tx.organization.findUniqueOrThrow({ where: { id: orgId } })).slug;
+      await tx.notification.create({
+        data: { userId: data.assigneeId as string, verb: "assigned", link: `/org/${slug}/tasks/${task.id}` },
+      });
+    }
+    return updated;
+  });
 }
 
 export async function moveTask(
@@ -134,10 +160,16 @@ export async function moveTask(
   await getBoardInOrg(orgId, input.boardId);
   if (!Number.isFinite(input.position)) throw new ValidationError("Invalid position");
 
+  const projectId = await projectIdForBoard(input.boardId);
   const updated = await prisma.task.update({
     where: { id: task.id },
     data: { boardId: input.boardId, status: input.status, position: input.position },
   });
+  if (task.status !== input.status) {
+    await logActivity(orgId, actorId, "task.moved", "task", task.id, projectId ?? undefined, {
+      from: task.status, to: input.status,
+    });
+  }
 
   // rebalance if neighbors got too close
   const column = await prisma.task.findMany({
@@ -160,7 +192,11 @@ export async function moveTask(
 export async function deleteTask(orgId: string, actorId: string, taskId: string) {
   const task = await getTaskInOrg(orgId, taskId);
   await assertCanMutate(orgId, actorId, task);
-  await prisma.task.delete({ where: { id: task.id } });
+  const projectId = await projectIdForBoard(task.boardId);
+  await prisma.$transaction(async (tx) => {
+    await tx.task.delete({ where: { id: task.id } });
+    await logActivity(orgId, actorId, "task.deleted", "task", task.id, projectId ?? undefined, { title: task.title }, tx);
+  });
 }
 
 export async function listBoardTasks(orgId: string, actorId: string, boardId: string) {
