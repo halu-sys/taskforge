@@ -3,6 +3,9 @@
 A complete project-management SaaS demo with a full subscription-billing subsystem.
 Runs entirely locally: Next.js + PostgreSQL + Prisma. No external services.
 
+**Built with AI agents under a review-gated workflow — see [CASE_STUDY.md](CASE_STUDY.md)
+for the process, what the review agents caught, and the verification loop.**
+
 ## Prerequisites
 
 - Node 20+
