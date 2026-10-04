@@ -280,3 +280,8 @@ model Payment {
   createdAt DateTime      @default(now())
   invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
+
+model Counter {
+  key   String @id
+  value Int
+}
