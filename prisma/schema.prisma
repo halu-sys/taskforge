@@ -235,6 +235,7 @@ model Subscription {
   orgId              String             @unique
   planId             String
   status             SubscriptionStatus @default(TRIALING)
+  seats              Int                @default(1)
   currentPeriodEnd   DateTime
   trialEndsAt        DateTime?
   cancelAtPeriodEnd  Boolean            @default(false)

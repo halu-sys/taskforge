@@ -46,8 +46,8 @@ export async function checkout(
   return prisma.$transaction(async (tx) => {
     const subscription = await tx.subscription.upsert({
       where: { orgId },
-      update: { planId: plan.id, status: "ACTIVE", currentPeriodEnd: periodEnd, cancelAtPeriodEnd: false, dunningFailures: 0 },
-      create: { orgId, planId: plan.id, status: "ACTIVE", currentPeriodEnd: periodEnd },
+      update: { planId: plan.id, status: "ACTIVE", seats, currentPeriodEnd: periodEnd, cancelAtPeriodEnd: false, dunningFailures: 0 },
+      create: { orgId, planId: plan.id, status: "ACTIVE", seats, currentPeriodEnd: periodEnd },
     });
     const invoice = await tx.invoice.create({
       data: {
