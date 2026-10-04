@@ -16,7 +16,7 @@ async function orgSlug(orgId: string) {
   return (await prisma.organization.findUniqueOrThrow({ where: { id: orgId } })).slug;
 }
 
-export async function createTaskAction(orgId: string, fd: FormData) {
+export async function createTaskAction(orgId: string, fd: FormData): Promise<void> {
   const userId = await actor();
   const boardId = String(fd.get("boardId") ?? "");
   const task = await createTask(orgId, userId, {
@@ -26,7 +26,6 @@ export async function createTaskAction(orgId: string, fd: FormData) {
   });
   const slug = await orgSlug(orgId);
   revalidatePath(`/org/${slug}/projects`);
-  return { ok: true, taskId: task.id };
 }
 
 export async function updateTaskAction(orgId: string, taskId: string, patch: {
