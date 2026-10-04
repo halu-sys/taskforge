@@ -7,15 +7,16 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hasSession = Boolean(req.cookies.get("tf_session")?.value);
 
+  const noStore = { headers: { "Cache-Control": "no-store" } };
   if (!hasSession && APP_PREFIXES.some((p) => pathname.startsWith(p))) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(url, noStore);
   }
   if (hasSession && AUTH_ROUTES.includes(pathname)) {
     const url = req.nextUrl.clone();
     url.pathname = "/org";
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(url, noStore);
   }
   return NextResponse.next();
 }
