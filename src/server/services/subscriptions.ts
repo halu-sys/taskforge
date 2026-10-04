@@ -129,3 +129,71 @@ export async function changeSeats(
   const updated = await prisma.subscription.update({ where: { orgId }, data: { seats: newSeats } });
   return { subscription: updated, invoice: null };
 }
+
+const DUNNING_LIMIT = 3;
+
+// Renew a subscription whose period has ended. Called lazily from the billing
+// page and from scripts/renew.ts. Success extends the period with a PAID
+// invoice; failure marks PAST_DUE with an UNCOLLECTED invoice and counts a
+// strike; DUNNING_LIMIT strikes cancel the subscription.
+export async function renewSubscription(
+  orgId: string,
+  provider: PaymentProvider,
+  card = "4242424242424242",
+): Promise<{ outcome: "noop" | "renewed" | "failed" | "canceled" }> {
+  const sub = await prisma.subscription.findUnique({ where: { orgId }, include: { plan: true } });
+  if (!sub || sub.status === "CANCELED") return { outcome: "noop" };
+  if (sub.currentPeriodEnd > new Date()) return { outcome: "noop" };
+
+  if (sub.cancelAtPeriodEnd) {
+    await prisma.subscription.update({ where: { orgId }, data: { status: "CANCELED" } });
+    await logActivity(orgId, null, "subscription.canceled", "subscription", sub.id, null, { reason: "period_end" });
+    return { outcome: "canceled" };
+  }
+
+  const amountCents = sub.seats * sub.plan.priceCents;
+  const { checkoutId } = provider.createCheckout(amountCents, { orgId, kind: "renewal", card });
+  const result = await provider.charge(checkoutId);
+
+  const periodStart = new Date(sub.currentPeriodEnd.getTime());
+  const periodEnd = addInterval(periodStart, sub.plan.interval);
+
+  if (result.ok) {
+    await prisma.$transaction(async (tx) => {
+      await tx.subscription.update({
+        where: { orgId },
+        data: { status: "ACTIVE", currentPeriodEnd: periodEnd, dunningFailures: 0 },
+      });
+      await tx.invoice.create({
+        data: {
+          orgId, subscriptionId: sub.id, number: await nextInvoiceNumber(tx),
+          status: "PAID", amountCents, periodStart, periodEnd, paidAt: new Date(),
+          lines: { create: [{ description: `${sub.plan.name}: ${sub.seats} seat(s) renewal`, amountCents }] },
+          payments: { create: [{ providerId: result.providerId!, amountCents, status: "SUCCEEDED" }] },
+        },
+      });
+    });
+    return { outcome: "renewed" };
+  }
+
+  const failures = sub.dunningFailures + 1;
+  const canceled = failures >= DUNNING_LIMIT;
+  await prisma.$transaction(async (tx) => {
+    await tx.subscription.update({
+      where: { orgId },
+      data: { status: canceled ? "CANCELED" : "PAST_DUE", dunningFailures: failures },
+    });
+    await tx.invoice.create({
+      data: {
+        orgId, subscriptionId: sub.id, number: await nextInvoiceNumber(tx),
+        status: "UNCOLLECTED", amountCents, periodStart, periodEnd,
+        lines: { create: [{ description: `${sub.plan.name}: ${sub.seats} seat(s) renewal (payment failed)`, amountCents }] },
+        payments: { create: [{ amountCents, status: "FAILED" }] },
+      },
+    });
+    if (canceled) {
+      await logActivity(orgId, null, "subscription.canceled", "subscription", sub.id, null, { reason: "dunning" }, tx);
+    }
+  });
+  return { outcome: canceled ? "canceled" : "failed" };
+}
